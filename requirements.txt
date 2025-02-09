@@ -1,5 +1,5 @@
-streamlit
-numpy
-matplotlib
-sympy
-scipy
+streamlit==1.29.0
+numpy==1.26.2
+matplotlib==3.8.2
+sympy==1.12
+scipy==1.11.4
