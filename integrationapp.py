@@ -153,7 +153,7 @@ def main():
                 - 📍 Limits: [{lower_limit}, {upper_limit}]**
                 
                 - ✨ Definite Integral Result: `{integral_result:.6f}`
-                - ⚠️ Error Estimate:** `{error_estimate:.2e}`
+                - 😭 Error Estimate:** `{error_estimate:.2e}`
 
                 
                 </div>
