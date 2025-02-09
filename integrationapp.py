@@ -15,87 +15,54 @@ except:
 st.set_page_config(
     page_title="Integration Calculator",
     page_icon=icon,
-    layout="wide",
+    layout="centered",  # Prevents side scrolling
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better visibility
+# Custom CSS to prevent side scrolling and optimize speed
 st.markdown("""
     <style>
-    .stButton>button {
-        width: 100%;
-        background-color: #4CAF50;
-        color: white;
-        height: 3em;
-    }
-    .stTextInput>div>div>input {
-        color: #4CAF50;
-    }
-    h1 {
-        color: #1E88E5;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    h2 {
-        color: #1976D2;
-    }
-    h3 {
-        color: #1565C0;
-    }
+    .st-emotion-cache-1wrcr25 { overflow: hidden !important; }
+    .st-emotion-cache-6qob1r { overflow: hidden !important; }
+    .st-emotion-cache-16txtl3 { overflow: hidden !important; }
+    .st-emotion-cache-1m0ydde { max-width: 100% !important; }
+    h1, h2, h3 { text-align: center; }
     .highlight {
-        background-color: #e8f5e9;
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        margin: 1rem 0;
-        border-left: 5px solid #4CAF50;
-        color: #2E7D32;
-        font-size: 1.1em;
-        font-weight: 500;
-    }
-    .success-box {
         background-color: #e8f5e9;
         padding: 1rem;
         border-radius: 0.5rem;
         border-left: 5px solid #4CAF50;
+        font-size: 1.1em;
     }
     </style>
 """, unsafe_allow_html=True)
 
 def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
-    plt.style.use('ggplot')  # Using ggplot style
-    fig, ax = plt.subplots(figsize=(12, 6))
+    plt.style.use('ggplot')
+    fig, ax = plt.subplots(figsize=(10, 5))
     
-    # Plot function with improved styling
-    ax.plot(x_vals, y_vals, label=f"f(x) = {expr_str}", color='#1976D2', linewidth=2.5)
-    
-    # Fill integration area
+    ax.plot(x_vals, y_vals, label=f"f(x) = {expr_str}", color='#1976D2', linewidth=2)
     x_fill = np.linspace(lower_limit, upper_limit, 500)
     y_fill = np.interp(x_fill, x_vals, y_vals)
     ax.fill_between(x_fill, y_fill, alpha=0.3, color='#4CAF50', label='Integration Area')
-    
-    # Enhanced grid and styling
+
     ax.grid(True, linestyle='--', alpha=0.7)
     ax.set_xlabel('x', fontsize=12, fontweight='bold')
     ax.set_ylabel('f(x)', fontsize=12, fontweight='bold')
-    ax.set_title(f"Integration of {expr_str}", fontsize=14, pad=20, fontweight='bold')
+    ax.set_title(f"Integration of {expr_str}", fontsize=14, pad=10, fontweight='bold')
     ax.legend(fontsize=10, framealpha=0.9)
     plt.tight_layout()
     return fig
 
 def main():
-    st.title('Advanced Integration Calculator')
+    st.title('Integration Calculator')
     
-    # Introduction with better visibility
     st.markdown("""
-    <div style='background-color: #e8f5e9; padding: 20px; border-radius: 5px; border-left: 5px solid #4CAF50; margin: 20px 0;'>
-    <span style='color: #2E7D32; font-size: 18px; font-weight: 500;'>
-    Welcome to the Advanced Integration Calculator! This tool helps you calculate definite and indefinite integrals
-    of various mathematical functions, from simple polynomials to complex expressions. Made by Uttaran.
-    </span>
+    <div class='highlight'>
+    🚀 **Welcome to the Integration Calculator!** This tool computes **definite and indefinite** integrals easily.
     </div>
     """, unsafe_allow_html=True)
 
-    # Create two columns for input
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -103,10 +70,9 @@ def main():
         expr_str = st.text_input(
             'Function f(x):',
             value='x**2',
-            help="Enter a mathematical function using x as the variable"
+            help="Enter a function using 'x' (e.g., x**2, sin(x), exp(-x))"
         )
         
-        # Limits in sub-columns
         limit_col1, limit_col2 = st.columns(2)
         with limit_col1:
             lower_limit = st.number_input('Lower Limit:', value=0.0, step=0.1, format="%.2f")
@@ -122,32 +88,41 @@ def main():
                 x = sp.symbols('x')
                 expr = sp.sympify(expr_str)
                 f = sp.lambdify(x, expr, 'numpy')
-                
-                plot_margin = (upper_limit - lower_limit) * 0.2
-                x_vals = np.linspace(lower_limit - plot_margin, upper_limit + plot_margin, 1000)
+
+                x_vals = np.linspace(lower_limit, upper_limit, 1000)
                 y_vals = f(x_vals)
-                
+
                 if np.any(np.isnan(y_vals)) or np.any(np.isinf(y_vals)):
                     st.error("⚠️ Function produces invalid values")
                     return
                 
+                # Definite Integral
                 integral_result, error_estimate = quad(f, lower_limit, upper_limit)
-                indefinite_integral = sp.integrate(expr, x)  # Indefinite integral using SymPy
                 
-                # Display results
+                # Indefinite Integral (Formatted for better readability)
+                indefinite_integral = sp.integrate(expr, x)
+                integral_latex = sp.latex(indefinite_integral)
+
                 st.pyplot(create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit))
                 
                 st.success(f"""
                 ### 🎉 Integration Results:
-                - 📊 Function: {expr_str}
-                - 📍 Integration limits: [{lower_limit}, {upper_limit}]
-                - ✨ Definite Integral Result: {integral_result:.6f}
-                - ⚠️ Error estimate: {error_estimate:.2e}
-                - 📝 **Indefinite Integral**: ∫ f(x) dx = {sp.pretty(indefinite_integral)}
+                - 📊 **Function:** `{expr_str}`
+                - 📍 **Integration limits:** [{lower_limit}, {upper_limit}]
+                - ✨ **Definite Integral:** `{integral_result:.6f}`
+                - ⚠️ **Error estimate:** `{error_estimate:.2e}`
                 """)
 
                 if abs(error_estimate) > 1e-6:
-                    st.warning("⚠️ Note: The error estimate is relatively large.")
+                    st.warning("⚠️ The error estimate is relatively large.")
+
+                # Display Indefinite Integral
+                st.markdown(f"""
+                <div class='highlight'>
+                ✏️ **Indefinite Integral:**  
+                $$ \\int {expr_str} \\,dx = {sp.pretty(indefinite_integral)} + C $$
+                </div>
+                """, unsafe_allow_html=True)
 
             except Exception as e:
                 st.error(f"⚠️ Error: {str(e)}")
@@ -162,7 +137,6 @@ def main():
         - 🔄 Complex: `sin(x**2)*exp(-x)`
         """)
 
-    # Function guide in an expander
     with st.expander("📚 Function Guide", expanded=False):
         st.markdown("""
         ### 🔢 Basic Operations
@@ -180,12 +154,6 @@ def main():
         ### 🎲 Constants
         - π (pi): `pi`
         - e: `e`
-
-        ### ⚠️ Important Notes:
-        1. 💫 Always use * for multiplication
-        2. 🔋 Use ** for powers (x**2, not x^2)
-        3. 🎯 Always use parentheses with functions: sin(x), not sinx
-        4. ⚡ Functions are case-sensitive: use sin(x), not Sin(x)
         """)
 
 if __name__ == '__main__':
