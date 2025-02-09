@@ -148,10 +148,14 @@ def main():
                 st.markdown(f"""
                 <div class='result-box'>
                 Integration Results:
+
                 - 📊 Function: {expr_str}
                 - 📍 Limits: [{lower_limit}, {upper_limit}]**
-                - ✨ **Definite Integral Result: `{integral_result:.6f}`
-                - ⚠️ **Error Estimate:** `{error_estimate:.2e}`
+                
+                - ✨ Definite Integral Result: `{integral_result:.6f}`
+                - ⚠️ Error Estimate:** `{error_estimate:.2e}`
+
+                
                 </div>
                 """, unsafe_allow_html=True)
 
