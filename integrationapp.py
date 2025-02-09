@@ -89,8 +89,8 @@ def main():
     st.markdown("""
     <div style='background-color: #e8f5e9; padding: 20px; border-radius: 5px; border-left: 5px solid #4CAF50; margin: 20px 0;'>
     <span style='color: #2E7D32; font-size: 18px; font-weight: 500;'>
-    Welcome to the Advanced Integration Calculator! This tool helps you calculate definite integrals
-    of various mathematical functions, from simple polynomials to complex expressions.Made by Uttaran.
+    Welcome to the Advanced Integration Calculator! This tool helps you calculate definite and indefinite integrals
+    of various mathematical functions, from simple polynomials to complex expressions. Made by Uttaran.
     </span>
     </div>
     """, unsafe_allow_html=True)
@@ -132,6 +132,7 @@ def main():
                     return
                 
                 integral_result, error_estimate = quad(f, lower_limit, upper_limit)
+                indefinite_integral = sp.integrate(expr, x)  # Indefinite integral using SymPy
                 
                 # Display results
                 st.pyplot(create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit))
@@ -140,8 +141,9 @@ def main():
                 ### 🎉 Integration Results:
                 - 📊 Function: {expr_str}
                 - 📍 Integration limits: [{lower_limit}, {upper_limit}]
-                - ✨ Result: {integral_result:.6f}
+                - ✨ Definite Integral Result: {integral_result:.6f}
                 - ⚠️ Error estimate: {error_estimate:.2e}
+                - 📝 **Indefinite Integral**: ∫ f(x) dx = {sp.pretty(indefinite_integral)}
                 """)
 
                 if abs(error_estimate) > 1e-6:
