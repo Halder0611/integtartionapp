@@ -147,17 +147,17 @@ def main():
                 # Display Integration Results in a Dark Box
                 st.markdown(f"""
                 <div class='result-box'>
-                ### 🎉 Integration Results:
-                - 📊 Function: **{expr_str}**
-                - 📍 Limits: **[{lower_limit}, {upper_limit}]**
-                - ✨ **Definite Integral Result:** `{integral_result:.6f}`
+                Integration Results:
+                - 📊 Function: {expr_str}
+                - 📍 Limits: [{lower_limit}, {upper_limit}]**
+                - ✨ **Definite Integral Result: `{integral_result:.6f}`
                 - ⚠️ **Error Estimate:** `{error_estimate:.2e}`
                 </div>
                 """, unsafe_allow_html=True)
 
                 # Display Indefinite Integral
                 st.markdown(f"""
-                ### ✏️ Indefinite Integral:
+                ### Indefinite Integral:
                 $$ \int {sp.latex(expr)} \,dx = {latex_integral} + C $$
                 """, unsafe_allow_html=True)
 
