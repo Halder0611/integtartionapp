@@ -139,6 +139,7 @@ def evaluate_special_function(expr_str, x_val):
         return None
     except:
         return None
+
 def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
     try:
         y_vals = np.asarray(y_vals, dtype=np.float64)
@@ -182,6 +183,16 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
             line_color="red",
             annotation_text="Lower Limit",
             annotation_position="top left"
+        )
+        
+        # Add a draggable vertical line
+        fig.add_vline(
+            x=(lower_limit + upper_limit) / 2,
+            line_width=2,
+            line_dash="dot",
+            line_color="blue",
+            annotation_text="Drag Me",
+            annotation_position="top right"
         )
         
         fig.update_layout(
