@@ -6,7 +6,6 @@ import scipy.special as special
 from PIL import Image
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import json
 
 try:
     icon = Image.open("assets/icon.png")
@@ -342,15 +341,15 @@ def main():
                         st.warning("⚠️ Note: The error estimate is relatively large.")
                         
                     # Add JavaScript to handle vertical line dragging
-                    st.markdown("""
+                    st.markdown(f"""
                     <script>
-                    document.addEventListener("DOMContentLoaded", function() {
+                    document.addEventListener("DOMContentLoaded", function() {{
                         const graphDiv = document.querySelector("[id^='plotly']").parentNode;
-                        graphDiv.on("plotly_relayout", function(eventdata) {
+                        graphDiv.on("plotly_relayout", function(eventdata) {{
                             const xAxisRange = eventdata["xaxis.range"];
-                            if (xAxisRange) {
+                            if (xAxisRange) {{
                                 const newX = (xAxisRange[0] + xAxisRange[1]) / 2;
-                                const verticalLine = {
+                                const verticalLine = {{
                                     type: "line",
                                     x0: newX,
                                     y0: 0,
@@ -358,16 +357,16 @@ def main():
                                     y1: 1,
                                     xref: "x",
                                     yref: "paper",
-                                    line: {
+                                    line: {{
                                         color: "blue",
                                         width: 2,
                                         dash: "dot",
-                                    },
-                                };
-                                Plotly.relayout(graphDiv, { shapes: [verticalLine] });
-                            }
-                        });
-                    });
+                                    }},
+                                }};
+                                Plotly.relayout(graphDiv, {{ shapes: [verticalLine] }});
+                            }}
+                        }});
+                    }});
                     </script>
                     """, unsafe_allow_html=True)
                         
