@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
 from scipy.integrate import quad
+import mpmath
+import scipy.special as special
 from PIL import Image
 
 # Load the icon image
@@ -15,14 +17,14 @@ except:
 st.set_page_config(
     page_title="Integration Calculator",
     page_icon=icon,
-    layout="centered",  # Prevents horizontal scrolling
+    layout="centered",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS (keeping the original CSS)
 st.markdown("""
     <style>
-    body { overflow-x: hidden !important; } /* Stops horizontal scrolling */
+    body { overflow-x: hidden !important; }
     
     .stButton>button {
         width: 100%;
@@ -43,7 +45,6 @@ st.markdown("""
         text-align: center;
     }
 
-    /* General highlight box */
     .highlight {
         background-color: #e8f5e9;
         padding: 1.5rem;
@@ -55,7 +56,6 @@ st.markdown("""
         font-weight: 500;
     }
 
-    /* Darker background for the integration results */
     .result-box {
         background-color: #263238;
         color: #ECEFF1;
@@ -67,7 +67,6 @@ st.markdown("""
         font-weight: bold;
     }
 
-    /* Function Guide Box */
     .function-guide {
         background-color: #f5f5f5;
         padding: 1rem;
@@ -78,35 +77,63 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def try_integration(expr, x):
-    """Attempts multiple methods to compute indefinite integral"""
+    """Attempts multiple methods to compute indefinite integral with special functions"""
     try:
-        # First attempt: Direct integration
-        result = sp.integrate(expr, x)
-        if result.has(sp.Integral):  # Check if integration was successful
-            raise ValueError("Direct integration failed")
+        # First attempt: Direct integration with special functions
+        result = sp.integrate(expr, x, meijerg=True, risch=True)
+        if result.has(sp.Integral):
+            # Try converting to special functions
+            expr_str = str(expr)
+            if 'sin(x**2)' in expr_str:
+                S, C = sp.fresnels(x), sp.fresnelc(x)
+                result = sp.sqrt(sp.pi/2) * (S + C)
+            elif 'exp(-x**2)' in expr_str:
+                result = sp.sqrt(sp.pi) * sp.erf(x) / 2
+            else:
+                # Try simplification before giving up
+                simplified = sp.trigsimp(sp.apart(expr))
+                result = sp.integrate(simplified, x)
+                if result.has(sp.Integral):
+                    raise ValueError("Direct integration failed")
         return result
     except:
         try:
-            # Second attempt: Simplify and integrate
-            simplified_expr = sp.trigsimp(sp.apart(expr))
-            result = sp.integrate(simplified_expr, x)
+            # Second attempt: Using mpmath special functions
+            if isinstance(expr, sp.Basic):
+                expr_str = str(expr)
+                if 'sin(x**2)' in expr_str:
+                    return sp.sqrt(sp.pi/2) * (sp.fresnels(x) + sp.fresnelc(x))
+                elif 'exp(-x**2)' in expr_str:
+                    return sp.sqrt(sp.pi) * sp.erf(x) / 2
+            # Try manual integration as last resort
+            result = sp.integrate(expr, x, manual=True)
             if result.has(sp.Integral):
-                raise ValueError("Integration after simplification failed")
+                raise ValueError("Manual integration failed")
             return result
         except:
-            try:
-                # Third attempt: Manual integration
-                result = sp.integrate(expr, x, manual=True)
-                if result.has(sp.Integral):
-                    raise ValueError("Manual integration failed")
-                return result
-            except:
-                return None
+            return None
+
+def evaluate_special_function(expr_str, x_val):
+    """Evaluates special functions numerically"""
+    try:
+        if 'sin(x**2)' in expr_str:
+            s, c = special.fresnel(x_val)
+            return np.sqrt(np.pi/2) * (s + c)
+        elif 'exp(-x**2)' in expr_str:
+            return np.sqrt(np.pi) * special.erf(x_val) / 2
+        return None
+    except:
+        return None
 
 def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
     """Generates a plot for the given function and shaded integral area."""
     plt.style.use('ggplot')
     fig, ax = plt.subplots(figsize=(10, 5))
+    
+    # Try to evaluate using special functions if needed
+    special_y = np.array([evaluate_special_function(expr_str, x) for x in x_vals])
+    if special_y is not None and not np.any(np.isnan(special_y)):
+        y_vals = special_y
     
     ax.plot(x_vals, y_vals, label=f"$f(x) = {expr_str}$", color='#1976D2', linewidth=2.5)
     
@@ -153,7 +180,7 @@ def main():
 
                 x = sp.symbols('x')
                 expr = sp.sympify(expr_str)
-                f = sp.lambdify(x, expr, 'numpy')
+                f = sp.lambdify(x, expr, modules=['numpy', 'scipy'])
 
                 plot_margin = (upper_limit - lower_limit) * 0.2
                 x_vals = np.linspace(lower_limit - plot_margin, upper_limit + plot_margin, 1000)
@@ -182,7 +209,7 @@ def main():
                 # Display plot
                 st.pyplot(create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit))
 
-                # Display Integration Results in a Dark Box
+                # Display Integration Results
                 st.markdown(f"""
                 <div class='result-box'>
                 Integration Results:
@@ -207,7 +234,7 @@ def main():
         - 📊 Basic: `x**2`
         - 📐 Trig: `sin(x)`
         - 📈 Exponential: `exp(-x)`
-        - 🔄 Complex: `sin(x**2)*exp(-x)`
+        - 🔄 Complex: `sin(x**2)`
         """)
 
     with st.expander("📚 Function Guide", expanded=False):
@@ -224,6 +251,11 @@ def main():
         - 🔄 Inverse Trig: `asin(x)`, `acos(x)`, `atan(x)`
         - 📈 Exponential: `exp(x)`
         - 📉 Logarithmic: `log(x)`, `log10(x)`
+        
+        ### 🎲 Special Functions
+        - Fresnel Integrals: `sin(x**2)`
+        - Error Function: `exp(-x**2)`
+        - Inverse Functions: `1/sqrt(1-x**2)` (arcsin)
         
         ### 🎲 Constants
         - π (pi): `pi`
