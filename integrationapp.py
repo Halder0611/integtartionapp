@@ -156,6 +156,7 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
             y=y_vals[mask],
             name="f(x)",
             line=dict(color='#2962FF', width=2.5),
+            mode='lines+markers',
             hovertemplate="<b>x</b>: %{x:.4f}<br><b>f(x)</b>: %{y:.4f}",
             hoverlabel=dict(
                 bgcolor="#1565C0",
