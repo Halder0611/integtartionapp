@@ -6,6 +6,7 @@ import scipy.special as special
 from PIL import Image
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import json
 
 try:
     icon = Image.open("assets/icon.png")
@@ -186,16 +187,23 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
         )
         
         # Add a draggable vertical line
-        fig.add_vline(
-            x=(lower_limit + upper_limit) / 2,
-            line_width=2,
-            line_dash="dot",
-            line_color="blue",
-            annotation_text="Drag Me",
-            annotation_position="top right"
-        )
+        vertical_line = {
+            "type": "line",
+            "xref": "x",
+            "yref": "paper",
+            "x0": (lower_limit + upper_limit) / 2,
+            "y0": 0,
+            "x1": (lower_limit + upper_limit) / 2,
+            "y1": 1,
+            "line": {
+                "color": "blue",
+                "width": 2,
+                "dash": "dot",
+            },
+        }
         
         fig.update_layout(
+            shapes=[vertical_line],
             title=dict(
                 text=f"Integration of f(x) = {expr_str}",
                 font=dict(size=14, color='#1565C0'),
@@ -332,6 +340,36 @@ def main():
 
                     if abs(error_estimate) > 1e-6:
                         st.warning("⚠️ Note: The error estimate is relatively large.")
+                        
+                    # Add JavaScript to handle vertical line dragging
+                    st.markdown("""
+                    <script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        const graphDiv = document.querySelector("[id^='plotly']").parentNode;
+                        graphDiv.on("plotly_relayout", function(eventdata) {
+                            const xAxisRange = eventdata["xaxis.range"];
+                            if (xAxisRange) {
+                                const newX = (xAxisRange[0] + xAxisRange[1]) / 2;
+                                const verticalLine = {
+                                    type: "line",
+                                    x0: newX,
+                                    y0: 0,
+                                    x1: newX,
+                                    y1: 1,
+                                    xref: "x",
+                                    yref: "paper",
+                                    line: {
+                                        color: "blue",
+                                        width: 2,
+                                        dash: "dot",
+                                    },
+                                };
+                                Plotly.relayout(graphDiv, { shapes: [verticalLine] });
+                            }
+                        });
+                    });
+                    </script>
+                    """, unsafe_allow_html=True)
                         
                 except Exception as int_error:
                     st.error("⚠️ Error computing the definite integral. The function might be too complex or undefined in the given interval.")
