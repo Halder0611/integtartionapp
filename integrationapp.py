@@ -21,7 +21,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS (keeping the original CSS)
+# Updated CSS with better contrast
 st.markdown("""
     <style>
     body { overflow-x: hidden !important; }
@@ -68,10 +68,35 @@ st.markdown("""
     }
 
     .function-guide {
-        background-color: #f5f5f5;
-        padding: 1rem;
+        background-color: #1a1a1a;
+        color: #ffffff;
+        padding: 1.5rem;
         border-radius: 0.5rem;
         border-left: 5px solid #4CAF50;
+        margin: 1rem 0;
+    }
+
+    .function-guide h3 {
+        color: #4CAF50;
+        margin-bottom: 1rem;
+    }
+
+    .function-guide ul {
+        list-style-type: none;
+        padding-left: 0;
+    }
+
+    .function-guide li {
+        margin-bottom: 0.5rem;
+        color: #ffffff;
+    }
+
+    .code-text {
+        font-family: monospace;
+        background-color: #333333;
+        padding: 0.2rem 0.4rem;
+        border-radius: 3px;
+        color: #4CAF50;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -130,26 +155,35 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
     plt.style.use('ggplot')
     fig, ax = plt.subplots(figsize=(10, 5))
     
-    # Try to evaluate using special functions if needed
-    special_y = np.array([evaluate_special_function(expr_str, x) for x in x_vals])
-    if special_y is not None and not np.any(np.isnan(special_y)):
-        y_vals = special_y
-    
-    ax.plot(x_vals, y_vals, label=f"$f(x) = {expr_str}$", color='#1976D2', linewidth=2.5)
-    
-    x_fill = np.linspace(lower_limit, upper_limit, 500)
-    y_fill = np.interp(x_fill, x_vals, y_vals)
-    ax.fill_between(x_fill, y_fill, alpha=0.3, color='#4CAF50', label='Integration Area')
-    
-    ax.grid(True, linestyle='--', alpha=0.7)
-    ax.set_xlabel('x', fontsize=12, fontweight='bold')
-    ax.set_ylabel('f(x)', fontsize=12, fontweight='bold')
-    ax.set_title(f"Integration of $f(x) = {expr_str}$", fontsize=14, pad=20, fontweight='bold')
-    ax.legend(fontsize=10, framealpha=0.9)
-    
-    plt.tight_layout()
-    return fig
-
+    try:
+        # Convert to numpy array and handle special cases
+        y_vals = np.asarray(y_vals, dtype=np.float64)
+        
+        # Handle special functions
+        if 'sin(x**2)' in expr_str:
+            s, c = special.fresnel(x_vals)
+            y_vals = np.sqrt(np.pi/2) * s
+        
+        # Plot only finite values
+        mask = np.isfinite(y_vals)
+        ax.plot(x_vals[mask], y_vals[mask], label=f"$f(x) = {expr_str}$", color='#1976D2', linewidth=2.5)
+        
+        # Only fill between limits where values are finite
+        fill_mask = (x_vals >= lower_limit) & (x_vals <= upper_limit) & np.isfinite(y_vals)
+        if np.any(fill_mask):
+            ax.fill_between(x_vals[fill_mask], y_vals[fill_mask], alpha=0.3, color='#4CAF50', label='Integration Area')
+        
+        ax.grid(True, linestyle='--', alpha=0.7)
+        ax.set_xlabel('x', fontsize=12, fontweight='bold')
+        ax.set_ylabel('f(x)', fontsize=12, fontweight='bold')
+        ax.set_title(f"Integration of $f(x) = {expr_str}$", fontsize=14, pad=20, fontweight='bold')
+        ax.legend(fontsize=10, framealpha=0.9)
+        
+        plt.tight_layout()
+        return fig
+    except Exception as e:
+        st.error(f"Error creating plot: The function might be undefined in some regions")
+        return None
 def main():
     st.title('🚀 Advanced Integration Calculator')
     
@@ -180,14 +214,39 @@ def main():
 
                 x = sp.symbols('x')
                 expr = sp.sympify(expr_str)
-                f = sp.lambdify(x, expr, modules=['numpy', 'scipy'])
+                
+                # Modified lambdify with better function handling
+                f = sp.lambdify(x, expr, modules=['numpy', {
+                    'sin': np.sin, 
+                    'cos': np.cos,
+                    'tan': np.tan,
+                    'exp': np.exp,
+                    'log': np.log,
+                    'sqrt': np.sqrt,
+                    'pi': np.pi,
+                    'erf': special.erf,
+                    'fresnels': special.fresnel,
+                    'fresnelc': special.fresnel
+                }])
 
                 plot_margin = (upper_limit - lower_limit) * 0.2
                 x_vals = np.linspace(lower_limit - plot_margin, upper_limit + plot_margin, 1000)
-                y_vals = f(x_vals)
-
-                if np.any(np.isnan(y_vals)) or np.any(np.isinf(y_vals)):
-                    st.error("⚠️ Function produces invalid values")
+                
+                try:
+                    y_vals = f(x_vals)
+                    if isinstance(y_vals, tuple):  # Handle Fresnel function returns
+                        y_vals = y_vals[0]  # Take first component for Fresnel
+                    
+                    # Convert to float array and handle special cases
+                    y_vals = np.asarray(y_vals, dtype=np.float64)
+                    
+                    # Check for invalid values
+                    if np.any(~np.isfinite(y_vals)):
+                        st.error("⚠️ Function produces infinite or undefined values")
+                        return
+                        
+                except Exception as calc_error:
+                    st.error(f"⚠️ Error calculating function values. Please check your function syntax.")
                     return
 
                 # Try enhanced indefinite integration
@@ -203,65 +262,85 @@ def main():
                     st.warning("⚠️ Couldn't find a symbolic indefinite integral. "
                               "The function might be too complex for analytical integration.")
                 
-                # Still show definite integral (numerical result)
-                integral_result, error_estimate = quad(f, lower_limit, upper_limit)
-                
-                # Display plot
-                st.pyplot(create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit))
+                try:
+                    # Calculate definite integral
+                    integral_result, error_estimate = quad(f, lower_limit, upper_limit)
+                    
+                    # Display plot
+                    fig = create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit)
+                    if fig is not None:
+                        st.pyplot(fig)
 
-                # Display Integration Results
-                st.markdown(f"""
-                <div class='result-box'>
-                Integration Results:
+                    # Display Integration Results
+                    st.markdown(f"""
+                    <div class='result-box'>
+                    Integration Results:
 
-                - 📊 Function: {expr_str}
-                - 📍 Limits: [{lower_limit}, {upper_limit}]
-                - ✨ Definite Integral Result: `{integral_result:.6f}`
-                - 😭 Error Estimate: `{error_estimate:.2e}`
-                </div>
-                """, unsafe_allow_html=True)
+                    - 📊 Function: {expr_str}
+                    - 📍 Limits: [{lower_limit}, {upper_limit}]
+                    - ✨ Definite Integral Result: `{integral_result:.6f}`
+                    - 😭 Error Estimate: `{error_estimate:.2e}`
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                if abs(error_estimate) > 1e-6:
-                    st.warning("⚠️ Note: The error estimate is relatively large.")
-
+                    if abs(error_estimate) > 1e-6:
+                        st.warning("⚠️ Note: The error estimate is relatively large.")
+                        
+                except Exception as int_error:
+                    st.error("⚠️ Error computing the definite integral. The function might be too complex or undefined in the given interval.")
+                    
             except Exception as e:
-                st.error(f"⚠️ Error: {str(e)}")
-                st.info("Please check your function syntax and try again.")
+                st.error("⚠️ Invalid function syntax. Please check your input.")
+                st.info("Make sure to use proper Python syntax (e.g., x**2 for x², sin(x) for sine)")
 
     with col2:
-        st.markdown("### 💡 Quick Examples")
         st.markdown("""
-        - 📊 Basic: `x**2`
-        - 📐 Trig: `sin(x)`
-        - 📈 Exponential: `exp(-x)`
-        - 🔄 Complex: `sin(x**2)`
-        """)
-
-    with st.expander("📚 Function Guide", expanded=False):
-        st.markdown("""
-        <div class='function-guide'>
-        ### 🔢 Basic Operations
-        - ➕ Addition: `+` (x + 1)
-        - ✖️ Multiplication: `*` (2*x)
-        - 🔋 Power: `**` (x**2)
-        - ➗ Division: `/` (x/2)
-
-        ### 🎯 Advanced Functions
-        - 📐 Trigonometric: `sin(x)`, `cos(x)`, `tan(x)`
-        - 🔄 Inverse Trig: `asin(x)`, `acos(x)`, `atan(x)`
-        - 📈 Exponential: `exp(x)`
-        - 📉 Logarithmic: `log(x)`, `log10(x)`
-        
-        ### 🎲 Special Functions
-        - Fresnel Integrals: `sin(x**2)`
-        - Error Function: `exp(-x**2)`
-        - Inverse Functions: `1/sqrt(1-x**2)` (arcsin)
-        
-        ### 🎲 Constants
-        - π (pi): `pi`
-        - e: `e`
+        <div class='function-guide' style='padding: 1rem; margin-bottom: 0.5rem;'>
+        <h3 style='margin-bottom: 0.5rem; font-size: 1.1em;'>💡 Quick Examples:</h3>
+        <ul style='list-style-type: none; padding-left: 0; margin-bottom: 0;'>
+            <li style='margin-bottom: 5px; font-size: 0.8em;'>
+                📊Basic <span class='code-text'>x**2</span>
+            </li>
+            <li style='margin-bottom: 5px; font-size: 0.8em;'>
+                📐Trigonometric<span class='code-text'>sin(x)</span>
+            </li>
+            <li style='margin-bottom: 5px; font-size: 0.8em;'>
+                📈 Expotential <span class='code-text'>exp(-x)</span>
+            </li>
+            <li style='margin-bottom: 5px; font-size: 0.8em;'>
+                🔄Complex <span class='code-text'>sin(x**2)</span>
+            </li>
+        </ul>
         </div>
         """, unsafe_allow_html=True)
+
+        st.markdown("<div style='height: 0.5rem;'></div>", unsafe_allow_html=True)
+
+        with st.expander("📚 Function Guide", expanded=False):
+            st.markdown("""
+            <div class='function-guide'>
+            <h3>🔢 Basic Operations</h3>
+            • Addition: <span class='code-text'>+</span> (x + 1)<br>
+            • Multiplication: <span class='code-text'>*</span> (2*x)<br>
+            • Power: <span class='code-text'>**</span> (x**2)<br>
+            • Division: <span class='code-text'>/</span> (x/2)<br>
+
+            <h3>🎯 Advanced Functions</h3>
+            • Trigonometric: <span class='code-text'>sin(x)</span>, <span class='code-text'>cos(x)</span>, <span class='code-text'>tan(x)</span><br>
+            • Inverse Trig: <span class='code-text'>asin(x)</span>, <span class='code-text'>acos(x)</span>, <span class='code-text'>atan(x)</span><br>
+            • Exponential: <span class='code-text'>exp(x)</span><br>
+            • Logarithmic: <span class='code-text'>log(x)</span>, <span class='code-text'>log10(x)</span><br>
+            
+            <h3>🎲 Special Functions</h3>
+            • Fresnel Integrals: <span class='code-text'>sin(x**2)</span><br>
+            • Error Function: <span class='code-text'>exp(-x**2)</span><br>
+            • Inverse Functions: <span class='code-text'>1/sqrt(1-x**2)</span><br>
+            
+            <h3>🎲 Constants</h3>
+            • π (pi): <span class='code-text'>pi</span><br>
+            • e: <span class='code-text'>e</span><br>
+            </div>
+            """, unsafe_allow_html=True)
 
 if __name__ == '__main__':
     main()
