@@ -1,9 +1,7 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
 import sympy as sp
 from scipy.integrate import quad
-import mpmath
 import scipy.special as special
 from PIL import Image
 import plotly.graph_objects as go
@@ -185,7 +183,8 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
             ),
             xaxis_title="x",
             yaxis_title="f(x)",
-            hovermode='x unified',
+            hovermode='closest',
+            dragmode=False,
             showlegend=True,
             legend=dict(
                 yanchor="top",
