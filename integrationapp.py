@@ -5,6 +5,7 @@ from scipy.integrate import quad
 import scipy.special as special
 from PIL import Image
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 try:
     icon = Image.open("assets/icon.png")
@@ -146,15 +147,15 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
             s, c = special.fresnel(x_vals)
             y_vals = np.sqrt(np.pi/2) * s
         
-        fig = go.Figure()
+        fig = make_subplots()
         
         mask = np.isfinite(y_vals)
         fig.add_trace(go.Scatter(
             x=x_vals[mask],
             y=y_vals[mask],
             name="f(x)",
-            line=dict(color='#2962FF', width=2.5),
-            mode='lines+markers',
+            line=dict(color='#2962FF', width=1.5),
+            mode='lines',
             hovertemplate="<b>x</b>: %{x:.4f}<br><b>f(x)</b>: %{y:.4f}",
             hoverlabel=dict(
                 bgcolor="#1565C0",
@@ -173,6 +174,15 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
                 fillcolor='rgba(0, 200, 83, 0.2)',
                 hoverinfo='skip'
             ))
+
+        fig.add_vline(
+            x=lower_limit,
+            line_width=2,
+            line_dash="dash",
+            line_color="red",
+            annotation_text="Lower Limit",
+            annotation_position="top left"
+        )
         
         fig.update_layout(
             title=dict(
@@ -184,7 +194,7 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
             xaxis_title="x",
             yaxis_title="f(x)",
             hovermode='closest',
-            dragmode=False,
+            dragmode='pan',
             showlegend=True,
             legend=dict(
                 yanchor="top",
@@ -209,6 +219,8 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
                 linecolor='rgba(128, 128, 128, 0.8)'
             )
         )
+
+        fig.update_traces(marker=dict(size=12), selector=dict(mode='markers+text'))
         
         return fig
     except Exception as e:
