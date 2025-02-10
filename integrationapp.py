@@ -57,11 +57,11 @@ st.markdown("""
 
     /* Darker background for the integration results */
     .result-box {
-        background-color: #263238; /* Dark gray-blue */
-        color: #ECEFF1; /* Light text */
+        background-color: #263238;
+        color: #ECEFF1;
         padding: 1.5rem;
         border-radius: 0.5rem;
-        border-left: 5px solid #FF9800; /* Orange accent */
+        border-left: 5px solid #FF9800;
         margin: 1rem 0;
         font-size: 1.1em;
         font-weight: bold;
@@ -76,6 +76,32 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+def try_integration(expr, x):
+    """Attempts multiple methods to compute indefinite integral"""
+    try:
+        # First attempt: Direct integration
+        result = sp.integrate(expr, x)
+        if result.has(sp.Integral):  # Check if integration was successful
+            raise ValueError("Direct integration failed")
+        return result
+    except:
+        try:
+            # Second attempt: Simplify and integrate
+            simplified_expr = sp.trigsimp(sp.apart(expr))
+            result = sp.integrate(simplified_expr, x)
+            if result.has(sp.Integral):
+                raise ValueError("Integration after simplification failed")
+            return result
+        except:
+            try:
+                # Third attempt: Manual integration
+                result = sp.integrate(expr, x, manual=True)
+                if result.has(sp.Integral):
+                    raise ValueError("Manual integration failed")
+                return result
+            except:
+                return None
 
 def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
     """Generates a plot for the given function and shaded integral area."""
@@ -137,10 +163,22 @@ def main():
                     st.error("⚠️ Function produces invalid values")
                     return
 
+                # Try enhanced indefinite integration
+                indefinite_result = try_integration(expr, x)
+                
+                if indefinite_result is not None:
+                    latex_integral = sp.latex(indefinite_result)
+                    st.markdown(f"""
+                    ### Indefinite Integral:
+                    $$ \int {sp.latex(expr)} \,dx = {latex_integral} + C $$
+                    """, unsafe_allow_html=True)
+                else:
+                    st.warning("⚠️ Couldn't find a symbolic indefinite integral. "
+                              "The function might be too complex for analytical integration.")
+                
+                # Still show definite integral (numerical result)
                 integral_result, error_estimate = quad(f, lower_limit, upper_limit)
-                indefinite_integral = sp.integrate(expr, x)
-                latex_integral = sp.latex(indefinite_integral)
-
+                
                 # Display plot
                 st.pyplot(create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit))
 
@@ -150,19 +188,10 @@ def main():
                 Integration Results:
 
                 - 📊 Function: {expr_str}
-                - 📍 Limits: [{lower_limit}, {upper_limit}]**
-                
+                - 📍 Limits: [{lower_limit}, {upper_limit}]
                 - ✨ Definite Integral Result: `{integral_result:.6f}`
-                - 😭 Error Estimate:** `{error_estimate:.2e}`
-
-                
+                - 😭 Error Estimate: `{error_estimate:.2e}`
                 </div>
-                """, unsafe_allow_html=True)
-
-                # Display Indefinite Integral
-                st.markdown(f"""
-                ### Indefinite Integral:
-                $$ \int {sp.latex(expr)} \,dx = {latex_integral} + C $$
                 """, unsafe_allow_html=True)
 
                 if abs(error_estimate) > 1e-6:
