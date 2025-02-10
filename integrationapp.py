@@ -6,14 +6,13 @@ from scipy.integrate import quad
 import mpmath
 import scipy.special as special
 from PIL import Image
+import plotly.graph_objects as go
 
-# Load the icon image
 try:
     icon = Image.open("assets/icon.png")
 except:
     icon = "📐"
 
-# Set page configuration
 st.set_page_config(
     page_title="Integration Calculator",
     page_icon=icon,
@@ -21,7 +20,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Updated CSS with better contrast
 st.markdown("""
     <style>
     body { overflow-x: hidden !important; }
@@ -102,12 +100,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def try_integration(expr, x):
-    """Attempts multiple methods to compute indefinite integral with special functions"""
     try:
-        # First attempt: Direct integration with special functions
         result = sp.integrate(expr, x, meijerg=True, risch=True)
         if result.has(sp.Integral):
-            # Try converting to special functions
             expr_str = str(expr)
             if 'sin(x**2)' in expr_str:
                 S, C = sp.fresnels(x), sp.fresnelc(x)
@@ -115,7 +110,6 @@ def try_integration(expr, x):
             elif 'exp(-x**2)' in expr_str:
                 result = sp.sqrt(sp.pi) * sp.erf(x) / 2
             else:
-                # Try simplification before giving up
                 simplified = sp.trigsimp(sp.apart(expr))
                 result = sp.integrate(simplified, x)
                 if result.has(sp.Integral):
@@ -123,14 +117,12 @@ def try_integration(expr, x):
         return result
     except:
         try:
-            # Second attempt: Using mpmath special functions
             if isinstance(expr, sp.Basic):
                 expr_str = str(expr)
                 if 'sin(x**2)' in expr_str:
                     return sp.sqrt(sp.pi/2) * (sp.fresnels(x) + sp.fresnelc(x))
                 elif 'exp(-x**2)' in expr_str:
                     return sp.sqrt(sp.pi) * sp.erf(x) / 2
-            # Try manual integration as last resort
             result = sp.integrate(expr, x, manual=True)
             if result.has(sp.Integral):
                 raise ValueError("Manual integration failed")
@@ -139,7 +131,6 @@ def try_integration(expr, x):
             return None
 
 def evaluate_special_function(expr_str, x_val):
-    """Evaluates special functions numerically"""
     try:
         if 'sin(x**2)' in expr_str:
             s, c = special.fresnel(x_val)
@@ -149,41 +140,81 @@ def evaluate_special_function(expr_str, x_val):
         return None
     except:
         return None
-
 def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
-    """Generates a plot for the given function and shaded integral area."""
-    plt.style.use('ggplot')
-    fig, ax = plt.subplots(figsize=(10, 5))
-    
     try:
-        # Convert to numpy array and handle special cases
         y_vals = np.asarray(y_vals, dtype=np.float64)
         
-        # Handle special functions
         if 'sin(x**2)' in expr_str:
             s, c = special.fresnel(x_vals)
             y_vals = np.sqrt(np.pi/2) * s
         
-        # Plot only finite values
-        mask = np.isfinite(y_vals)
-        ax.plot(x_vals[mask], y_vals[mask], label=f"$f(x) = {expr_str}$", color='#1976D2', linewidth=2.5)
+        fig = go.Figure()
         
-        # Only fill between limits where values are finite
+        mask = np.isfinite(y_vals)
+        fig.add_trace(go.Scatter(
+            x=x_vals[mask],
+            y=y_vals[mask],
+            name="f(x)",
+            line=dict(color='#2962FF', width=2.5),
+            hovertemplate="<b>x</b>: %{x:.4f}<br><b>f(x)</b>: %{y:.4f}",
+            hoverlabel=dict(
+                bgcolor="#1565C0",
+                font=dict(size=12, color='white')
+            )
+        ))
+        
         fill_mask = (x_vals >= lower_limit) & (x_vals <= upper_limit) & np.isfinite(y_vals)
         if np.any(fill_mask):
-            ax.fill_between(x_vals[fill_mask], y_vals[fill_mask], alpha=0.3, color='#4CAF50', label='Integration Area')
+            fig.add_trace(go.Scatter(
+                x=x_vals[fill_mask],
+                y=y_vals[fill_mask],
+                fill='tozeroy',
+                name="Integration Area",
+                line=dict(color='#00C853'),
+                fillcolor='rgba(0, 200, 83, 0.2)',
+                hoverinfo='skip'
+            ))
         
-        ax.grid(True, linestyle='--', alpha=0.7)
-        ax.set_xlabel('x', fontsize=12, fontweight='bold')
-        ax.set_ylabel('f(x)', fontsize=12, fontweight='bold')
-        ax.set_title(f"Integration of $f(x) = {expr_str}$", fontsize=14, pad=20, fontweight='bold')
-        ax.legend(fontsize=10, framealpha=0.9)
+        fig.update_layout(
+            title=dict(
+                text=f"Integration of f(x) = {expr_str}",
+                font=dict(size=14, color='#1565C0'),
+                x=0.5,
+                xanchor='center'
+            ),
+            xaxis_title="x",
+            yaxis_title="f(x)",
+            hovermode='x unified',
+            showlegend=True,
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01,
+                bgcolor='rgba(255, 255, 255, 0.8)'
+            ),
+            plot_bgcolor='white',
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(128, 128, 128, 0.2)',
+                showline=True,
+                linewidth=1,
+                linecolor='rgba(128, 128, 128, 0.8)'
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(128, 128, 128, 0.2)',
+                showline=True,
+                linewidth=1,
+                linecolor='rgba(128, 128, 128, 0.8)'
+            )
+        )
         
-        plt.tight_layout()
         return fig
     except Exception as e:
         st.error(f"Error creating plot: The function might be undefined in some regions")
         return None
+
 def main():
     st.title('🚀 Advanced Integration Calculator')
     
@@ -215,7 +246,6 @@ def main():
                 x = sp.symbols('x')
                 expr = sp.sympify(expr_str)
                 
-                # Modified lambdify with better function handling
                 f = sp.lambdify(x, expr, modules=['numpy', {
                     'sin': np.sin, 
                     'cos': np.cos,
@@ -234,13 +264,11 @@ def main():
                 
                 try:
                     y_vals = f(x_vals)
-                    if isinstance(y_vals, tuple):  # Handle Fresnel function returns
-                        y_vals = y_vals[0]  # Take first component for Fresnel
+                    if isinstance(y_vals, tuple):
+                        y_vals = y_vals[0]
                     
-                    # Convert to float array and handle special cases
                     y_vals = np.asarray(y_vals, dtype=np.float64)
                     
-                    # Check for invalid values
                     if np.any(~np.isfinite(y_vals)):
                         st.error("⚠️ Function produces infinite or undefined values")
                         return
@@ -249,7 +277,6 @@ def main():
                     st.error(f"⚠️ Error calculating function values. Please check your function syntax.")
                     return
 
-                # Try enhanced indefinite integration
                 indefinite_result = try_integration(expr, x)
                 
                 if indefinite_result is not None:
@@ -257,21 +284,18 @@ def main():
                     st.markdown(f"""
                     ### Indefinite Integral:
                     $$ \int {sp.latex(expr)} \,dx = {latex_integral} + C $$
-                    """, unsafe_allow_html=True)
+                    """)
                 else:
                     st.warning("⚠️ Couldn't find a symbolic indefinite integral. "
                               "The function might be too complex for analytical integration.")
                 
                 try:
-                    # Calculate definite integral
                     integral_result, error_estimate = quad(f, lower_limit, upper_limit)
                     
-                    # Display plot
                     fig = create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit)
                     if fig is not None:
-                        st.pyplot(fig)
+                        st.plotly_chart(fig, use_container_width=True)
 
-                    # Display Integration Results
                     st.markdown(f"""
                     <div class='result-box'>
                     Integration Results:
