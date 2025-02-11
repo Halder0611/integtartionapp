@@ -246,7 +246,7 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
         return None
 
 def main():
-    st.title('🚀 Advanced Integration Calculator')
+    st.title(' Advanced Integration Calculator')
     
     st.markdown("""
     <div class='highlight'>
