@@ -73,19 +73,19 @@ st.markdown("""
         margin: 1rem 0;
     }
 
-    .function-guide h3 {
-        color: #4CAF50;
-        margin-bottom: 1rem;
+    .angular-guide {
+        background-color: #e8eaf6;
+        padding: 1rem;
+        border-radius: 4px;
+        border-left: 4px solid #3f51b5;
+        margin: 0.5rem 0;
+        width: 100%;
+        box-sizing: border-box;
     }
 
-    .function-guide ul {
-        list-style-type: none;
-        padding-left: 0;
-    }
-
-    .function-guide li {
-        margin-bottom: 0.5rem;
-        color: #ffffff;
+    .angular-button {
+        width: 100%;
+        margin: 0.2rem 0;
     }
 
     .code-text {
@@ -97,7 +97,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
 def try_integration(expr, x):
     try:
         result = sp.integrate(expr, x, meijerg=True, risch=True)
@@ -139,6 +138,23 @@ def evaluate_special_function(expr_str, x_val):
         return None
     except:
         return None
+
+def format_angle(value):
+    if abs(value) < 1e-10:
+        return "0"
+    
+    frac = value / np.pi
+    if abs(frac - round(frac)) < 1e-10:
+        if abs(frac) == 1:
+            return "π" if frac > 0 else "-π"
+        return f"{int(frac)}π"
+    
+    rational = sp.Rational(str(frac)).limit_denominator(12)
+    num, den = rational.numerator, rational.denominator
+    
+    if abs(num) == 1:
+        return f"π/{den}" if num > 0 else f"-π/{den}"
+    return f"{num}π/{den}"
 
 def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
     try:
@@ -185,7 +201,15 @@ def create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit):
             annotation_position="top left"
         )
         
-        # Add a draggable vertical line
+        fig.add_vline(
+            x=upper_limit,
+            line_width=2,
+            line_dash="dash",
+            line_color="red",
+            annotation_text="Upper Limit",
+            annotation_position="top right"
+        )
+        # Continuing the create_plot function
         vertical_line = {
             "type": "line",
             "xref": "x",
@@ -255,129 +279,58 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([2, 1])
+    # Create two columns for input and guide
+    input_col, guide_col = st.columns([2, 1])
     
-    with col1:
+    with input_col:
         st.markdown("### 📝 Enter Your Function")
         expr_str = st.text_input('Function f(x):', value='x**2', help="Use Python syntax (e.g., x**2 for x²)")
         
+        # Add radio button for limit type selection
+        limit_type = st.radio(
+            "Limit Input Type:",
+            ["Decimal", "Angular (π)"],
+            horizontal=True
+        )
+
         limit_col1, limit_col2 = st.columns(2)
         with limit_col1:
-            lower_limit = st.number_input('Lower Limit:', value=0.0, step=0.1, format="%.2f")
+            if limit_type == "Decimal":
+                lower_limit = st.number_input('Lower Limit:', value=0.0, step=0.1, format="%.2f")
+            else:
+                lower_limit_str = st.text_input('Lower Limit:', value="0", 
+                    help="Enter as multiples of π (e.g., pi/2, -pi, 2*pi) or regular numbers")
+                try:
+                    expr = lower_limit_str.replace('π', 'pi')
+                    lower_limit = float(sp.sympify(expr).evalf())
+                except:
+                    st.error("Invalid input. Examples: pi/2, -pi, 1, 0.5")
+                    lower_limit = 0.0
+
         with limit_col2:
-            upper_limit = st.number_input('Upper Limit:', value=1.0, step=0.1, format="%.2f")
-        
-        if st.button('🔢 Calculate Integral', type='primary'):
-            try:
-                if lower_limit >= upper_limit:
-                    st.error("⚠️ Upper limit must be greater than lower limit")
-                    return
-
-                x = sp.symbols('x')
-                expr = sp.sympify(expr_str)
-                
-                f = sp.lambdify(x, expr, modules=['numpy', {
-                    'sin': np.sin, 
-                    'cos': np.cos,
-                    'tan': np.tan,
-                    'exp': np.exp,
-                    'log': np.log,
-                    'sqrt': np.sqrt,
-                    'pi': np.pi,
-                    'erf': special.erf,
-                    'fresnels': special.fresnel,
-                    'fresnelc': special.fresnel
-                }])
-
-                plot_margin = (upper_limit - lower_limit) * 0.2
-                x_vals = np.linspace(lower_limit - plot_margin, upper_limit + plot_margin, 1000)
-                
+            if limit_type == "Decimal":
+                upper_limit = st.number_input('Upper Limit:', value=1.0, step=0.1, format="%.2f")
+            else:
+                upper_limit_str = st.text_input('Upper Limit:', value="pi/2", 
+                    help="Enter as multiples of π (e.g., pi/2, -pi, 2*pi) or regular numbers")
                 try:
-                    y_vals = f(x_vals)
-                    if isinstance(y_vals, tuple):
-                        y_vals = y_vals[0]
-                    
-                    y_vals = np.asarray(y_vals, dtype=np.float64)
-                    
-                    if np.any(~np.isfinite(y_vals)):
-                        st.error("⚠️ Function produces infinite or undefined values")
-                        return
-                        
-                except Exception as calc_error:
-                    st.error(f"⚠️ Error calculating function values. Please check your function syntax.")
-                    return
+                    expr = upper_limit_str.replace('π', 'pi')
+                    upper_limit = float(sp.sympify(expr).evalf())
+                except:
+                    st.error("Invalid input. Examples: pi/2, -pi, 1, 0.5")
+                    upper_limit = np.pi/2
 
-                indefinite_result = try_integration(expr, x)
-                
-                if indefinite_result is not None:
-                    latex_integral = sp.latex(indefinite_result)
-                    st.markdown(f"""
-                    ### Indefinite Integral:
-                    $$ \int {sp.latex(expr)} \,dx = {latex_integral} + C $$
-                    """)
-                else:
-                    st.warning("⚠️ Couldn't find a symbolic indefinite integral. "
-                              "The function might be too complex for analytical integration.")
-                
-                try:
-                    integral_result, error_estimate = quad(f, lower_limit, upper_limit)
-                    
-                    fig = create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit)
-                    if fig is not None:
-                        st.plotly_chart(fig, use_container_width=True)
-
-                    st.markdown(f"""
-                    <div class='result-box'>
-                    Integration Results:
-
-                    - 📊 Function: {expr_str}
-                    - 📍 Limits: [{lower_limit}, {upper_limit}]
-                    - ✨ Definite Integral Result: `{integral_result:.6f}`
-                    - 😭 Error Estimate: `{error_estimate:.2e}`
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    if abs(error_estimate) > 1e-6:
-                        st.warning("⚠️ Note: The error estimate is relatively large.")
-                        
-                    # Add JavaScript to handle vertical line dragging
-                    st.markdown(f"""
-                    <script>
-                    document.addEventListener("DOMContentLoaded", function() {{
-                        const graphDiv = document.querySelector("[id^='plotly']").parentNode;
-                        graphDiv.on("plotly_relayout", function(eventdata) {{
-                            const xAxisRange = eventdata["xaxis.range"];
-                            if (xAxisRange) {{
-                                const newX = (xAxisRange[0] + xAxisRange[1]) / 2;
-                                const verticalLine = {{
-                                    type: "line",
-                                    x0: newX,
-                                    y0: 0,
-                                    x1: newX,
-                                    y1: 1,
-                                    xref: "x",
-                                    yref: "paper",
-                                    line: {{
-                                        color: "blue",
-                                        width: 2,
-                                        dash: "dot",
-                                    }},
-                                }};
-                                Plotly.relayout(graphDiv, {{ shapes: [verticalLine] }});
-                            }}
-                        }});
-                    }});
-                    </script>
-                    """, unsafe_allow_html=True)
-                        
-                except Exception as int_error:
-                    st.error("⚠️ Error computing the definite integral. The function might be too complex or undefined in the given interval.")
-                    
-            except Exception as e:
-                st.error("⚠️ Invalid function syntax. Please check your input.")
-                st.info("Make sure to use proper Python syntax (e.g., x**2 for x², sin(x) for sine)")
-
-    with col2:
+        # Add quick angular value buttons
+        if limit_type == "Angular (π)":
+            st.markdown("<div class='angular-guide'>Common Angular Values:</div>", unsafe_allow_html=True)
+            button_cols = st.columns(4)
+            angular_values = [("π/6", "pi6"), ("π/4", "pi4"), ("π/3", "pi3"), ("π/2", "pi2")]
+            
+            for i, (label, key) in enumerate(angular_values):
+                with button_cols[i]:
+                    if st.button(label, key=key, use_container_width=True):
+                        upper_limit = np.pi/(6 if key == "pi6" else 4 if key == "pi4" else 3 if key == "pi3" else 2)
+    with guide_col:
         st.markdown("""
         <div class='function-guide' style='padding: 1rem; margin-bottom: 0.5rem;'>
         <h3 style='margin-bottom: 0.5rem; font-size: 1.1em;'>💡 Quick Examples:</h3>
@@ -397,8 +350,6 @@ def main():
         </ul>
         </div>
         """, unsafe_allow_html=True)
-
-        st.markdown("<div style='height: 0.5rem;'></div>", unsafe_allow_html=True)
 
         with st.expander("📚 Function Guide", expanded=False):
             st.markdown("""
@@ -425,6 +376,95 @@ def main():
             • e: <span class='code-text'>e</span><br>
             </div>
             """, unsafe_allow_html=True)
+
+    # Calculate button and results moved outside columns for full width
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        calculate_button = st.button('🔢 Calculate Integral', type='primary')
+
+    if calculate_button:
+        try:
+            if lower_limit >= upper_limit:
+                st.error("⚠️ Upper limit must be greater than lower limit")
+                return
+
+            x = sp.symbols('x')
+            expr = sp.sympify(expr_str)
+            
+            f = sp.lambdify(x, expr, modules=['numpy', {
+                'sin': np.sin, 
+                'cos': np.cos,
+                'tan': np.tan,
+                'exp': np.exp,
+                'log': np.log,
+                'sqrt': np.sqrt,
+                'pi': np.pi,
+                'erf': special.erf,
+                'fresnels': special.fresnel,
+                'fresnelc': special.fresnel
+            }])
+
+            plot_margin = (upper_limit - lower_limit) * 0.2
+            x_vals = np.linspace(lower_limit - plot_margin, upper_limit + plot_margin, 1000)
+            
+            try:
+                y_vals = f(x_vals)
+                if isinstance(y_vals, tuple):
+                    y_vals = y_vals[0]
+                
+                y_vals = np.asarray(y_vals, dtype=np.float64)
+                
+                if np.any(~np.isfinite(y_vals)):
+                    st.error("⚠️ Function produces infinite or undefined values")
+                    return
+                    
+            except Exception as calc_error:
+                st.error("⚠️ Error calculating function values. Please check your function syntax.")
+                return
+
+            indefinite_result = try_integration(expr, x)
+            
+            if indefinite_result is not None:
+                latex_integral = sp.latex(indefinite_result)
+                st.markdown(f"""
+                ### Indefinite Integral:
+                $$ \int {sp.latex(expr)} \,dx = {latex_integral} + C $$
+                """)
+            else:
+                st.warning("⚠️ Couldn't find a symbolic indefinite integral. "
+                          "The function might be too complex for analytical integration.")
+            
+            try:
+                integral_result, error_estimate = quad(f, lower_limit, upper_limit)
+                
+                fig = create_plot(x_vals, y_vals, expr_str, lower_limit, upper_limit)
+                if fig is not None:
+                    st.plotly_chart(fig, use_container_width=True)
+
+                # Format limits based on the input type
+                limit_display_lower = format_angle(lower_limit) if limit_type == "Angular (π)" else f"{lower_limit:.4f}"
+                limit_display_upper = format_angle(upper_limit) if limit_type == "Angular (π)" else f"{upper_limit:.4f}"
+
+                st.markdown(f"""
+                <div class='result-box'>
+                Integration Results:
+
+                - 📊 Function: {expr_str}
+                - 📍 Limits: [{limit_display_lower}, {limit_display_upper}]
+                - ✨ Definite Integral Result: `{integral_result:.6f}`
+                - 😭 Error Estimate: `{error_estimate:.2e}`
+                </div>
+                """, unsafe_allow_html=True)
+
+                if abs(error_estimate) > 1e-6:
+                    st.warning("⚠️ Note: The error estimate is relatively large.")
+                    
+            except Exception as int_error:
+                st.error("⚠️ Error computing the definite integral. The function might be too complex or undefined in the given interval.")
+                
+        except Exception as e:
+            st.error("⚠️ Invalid function syntax. Please check your input.")
+            st.info("Make sure to use proper Python syntax (e.g., x**2 for x², sin(x) for sine)")
 
 if __name__ == '__main__':
     main()
